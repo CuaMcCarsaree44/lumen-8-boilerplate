@@ -2,9 +2,14 @@
 
 namespace App\Exceptions;
 
+use App\Facade\TelegramReporting;
+use App\Factory\BaseResponse;
+use Exception;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Laravel\Lumen\Exceptions\Handler as ExceptionHandler;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
@@ -20,7 +25,7 @@ class Handler extends ExceptionHandler
         AuthorizationException::class,
         HttpException::class,
         ModelNotFoundException::class,
-        ValidationException::class,
+//        ValidationException::class,
     ];
 
     /**
@@ -28,27 +33,38 @@ class Handler extends ExceptionHandler
      *
      * This is a great spot to send exceptions to Sentry, Bugsnag, etc.
      *
-     * @param  \Throwable  $exception
+     * @param Throwable $e
      * @return void
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    public function report(Throwable $exception)
+    public function report(Throwable $e)
     {
-        parent::report($exception);
+
+        TelegramReporting::sendLog(
+            "UNHANDLED EXCEPTION",
+            "\n{$e->getMessage()}\n\n{$e->getFile()}:{$e->getLine()}",
+            null
+        );
+
+        parent::report($e);
     }
 
     /**
      * Render an exception into an HTTP response.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Throwable  $exception
-     * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+     * @param  Request  $request
+     * @param Throwable $e
+     * @return Response|JsonResponse
      *
-     * @throws \Throwable
+     * @throws Throwable
      */
-    public function render($request, Throwable $exception)
+    public function render($request, Throwable $e): Response|JsonResponse
     {
-        return parent::render($request, $exception);
+        return BaseResponse::error(
+            $e->getMessage(),
+            $e->getCode() === 0 ? 500 : $e->getCode(),
+            $e->getFile() . ":" . $e->getLine()
+        );
     }
 }
